@@ -1,9 +1,9 @@
 [Unit]
 Description=Immich Machine Learning (ROCm)
-After=immich.network immich-model-cache.volume
+
 
 [Container]
-Image=ghcr.io/immich-app/immich-machine-learning:v1.106.4-rocm
+Image=ghcr.io/immich-app/immich-machine-learning:v3-rocm
 ContainerName=immich-machine-learning
 Network=immich.network
 Volume=immich-model-cache.volume:/cache

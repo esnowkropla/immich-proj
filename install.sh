@@ -44,10 +44,20 @@ if [ ! -d "$UPLOAD_LOCATION" ]; then
     mkdir -p "$UPLOAD_LOCATION"
 fi
 
+echo "Ensuring Podman uses the modern Netavark network backend (required for DNS)..."
+mkdir -p "$HOME/.config/containers"
+if ! grep -q "network_backend *= *\"netavark\"" "$HOME/.config/containers/containers.conf" 2>/dev/null; then
+    echo -e "[network]\nnetwork_backend=\"netavark\"" >> "$HOME/.config/containers/containers.conf"
+    echo "Cleaning up legacy CNI networks to force a Netavark rebuild..."
+    systemctl --user stop immich-server immich-machine-learning immich-postgres immich-redis immich-network.service 2>/dev/null || true
+    podman rm -f immich-server immich-machine-learning immich-postgres immich-redis 2>/dev/null || true
+    podman network rm immich 2>/dev/null || true
+fi
+
 echo "Setting up Podman secrets..."
 if ! podman secret exists immich_db_password; then
     echo "Generating secure database password and storing it in Podman secrets..."
-    openssl rand -hex 16 | podman secret create immich_db_password -
+    openssl rand -hex 16 | tr -d '\n' | podman secret create immich_db_password - > /dev/null
 else
     echo "Podman secret 'immich_db_password' already exists."
 fi
@@ -63,9 +73,12 @@ ln -sf "$DIR"/quadlets/*.container "$QUADLET_DIR/"
 echo "Reloading systemd daemon..."
 systemctl --user daemon-reload
 
-echo "Starting and enabling Immich services..."
-systemctl --user enable --now immich-server.service
-systemctl --user enable --now immich-machine-learning.service
+echo "Pre-pulling container images (this might take a few minutes)..."
+grep -h "^Image=" "$DIR"/quadlets/*.container | cut -d'=' -f2 | xargs -n1 podman pull
+
+echo "Starting Immich services..."
+systemctl --user start immich-server.service
+systemctl --user start immich-machine-learning.service
 
 echo ""
 echo "✅ Done! Immich should be starting up."

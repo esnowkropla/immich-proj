@@ -1,10 +1,10 @@
 [Unit]
 Description=Immich Server
-After=immich.network immich-postgres.container immich-redis.container
+After=immich-postgres.service immich-redis.service
 Requires=immich-postgres.service immich-redis.service
 
 [Container]
-Image=ghcr.io/immich-app/immich-server:v1.106.4
+Image=ghcr.io/immich-app/immich-server:v3
 ContainerName=immich-server
 Network=immich.network
 
