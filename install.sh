@@ -7,6 +7,15 @@ QUADLET_DIR="$HOME/.config/containers/systemd"
 echo "=== Immich Interactive Setup ==="
 echo ""
 
+# Check for required groups
+if ! groups | grep -q '\bvideo\b' || ! groups | grep -q '\brender\b'; then
+    echo "⚠️  WARNING: Your user is missing 'video' or 'render' group memberships."
+    echo "ROCm hardware acceleration may fail. Consider adding yourself to these groups:"
+    echo "  sudo usermod -aG video,render \$USER"
+    echo "Press Enter to continue anyway, or Ctrl+C to abort..."
+    read
+fi
+
 # Ask for Timezone
 read -p "Enter your Timezone [Default: America/Halifax]: " INPUT_TZ
 TZ=${INPUT_TZ:-America/Halifax}
@@ -16,9 +25,14 @@ read -p "Enter the absolute path to your Network Drive for photos [Default: $HOM
 UPLOAD_LOCATION=${INPUT_UPLOAD:-$HOME/nfs_photos}
 
 echo ""
-echo "Applying configurations..."
+echo "Generating configurations..."
 
-# Update Timezone in all quadlets safely
+# Create generated quadlets dir
+rm -rf "$DIR/quadlets"
+mkdir -p "$DIR/quadlets"
+cp "$DIR"/templates/* "$DIR/quadlets/"
+
+# Update Timezone in generated quadlets safely
 sed -i "s|Environment=TZ=.*|Environment=TZ=${TZ}|g" "$DIR"/quadlets/*.container
 
 # Update Volume mount in immich-server safely
@@ -55,8 +69,6 @@ systemctl --user enable --now immich-machine-learning.service
 
 echo ""
 echo "✅ Done! Immich should be starting up."
-echo "Your configuration has been saved directly into the quadlets/ directory."
-echo "Feel free to commit them to git as your final IaC!"
 echo ""
 echo "You can monitor the startup process by running:"
 echo "  journalctl --user -fu immich-server.service"

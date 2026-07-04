@@ -16,7 +16,7 @@ echo "This will upload all .zip files found in the directory and automatically r
 podman run --rm -it \
   -v "$TAKEOUT_DIR:/takeout:ro" \
   --network host \
-  ghcr.io/simulot/immich-go:latest \
+  ghcr.io/simulot/immich-go:v0.20.0 \
   -server http://localhost:2283 \
   -key "$API_KEY" \
   upload -create-albums /takeout/*.zip

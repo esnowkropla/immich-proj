@@ -1,10 +1,11 @@
 [Unit]
 Description=Immich Server
 After=immich.network immich-postgres.container immich-redis.container
+Requires=immich-postgres.service immich-redis.service
 
 [Container]
-Image=ghcr.io/immich-app/immich-server:v3
-ContainerName=immich_server
+Image=ghcr.io/immich-app/immich-server:v1.106.4
+ContainerName=immich-server
 Network=immich.network
 
 # Bind to localhost only so Tailscale can proxy securely
@@ -17,6 +18,8 @@ Volume=/etc/localtime:/etc/localtime:ro
 Environment=TZ=UTC
 Environment=DB_USERNAME=postgres
 Environment=DB_DATABASE_NAME=immich
+Environment=DB_HOSTNAME=immich-postgres
+Environment=REDIS_HOSTNAME=immich-redis
 Secret=immich_db_password,type=env,target=DB_PASSWORD
 
 [Service]
