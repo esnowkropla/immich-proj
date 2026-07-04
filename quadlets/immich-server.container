@@ -1,0 +1,26 @@
+[Unit]
+Description=Immich Server
+After=immich.network immich-postgres.container immich-redis.container
+
+[Container]
+Image=ghcr.io/immich-app/immich-server:v3
+ContainerName=immich_server
+Network=immich.network
+
+# Bind to localhost only so Tailscale can proxy securely
+PublishPort=127.0.0.1:2283:2283
+
+# Network Drive mapped to /data
+Volume=/mnt/network_drive/immich:/data
+Volume=/etc/localtime:/etc/localtime:ro
+
+Environment=TZ=UTC
+Environment=DB_USERNAME=postgres
+Environment=DB_DATABASE_NAME=immich
+Secret=immich_db_password,type=env,target=DB_PASSWORD
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

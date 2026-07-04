@@ -1,0 +1,23 @@
+[Unit]
+Description=Immich Machine Learning (ROCm)
+After=immich.network immich-model-cache.volume
+
+[Container]
+Image=ghcr.io/immich-app/immich-machine-learning:v3-rocm
+ContainerName=immich_machine_learning
+Network=immich.network
+Volume=immich-model-cache.volume:/cache
+
+# ROCm Hardware Acceleration
+AddDevice=/dev/kfd
+AddDevice=/dev/dri
+PodmanArgs=--group-add=keep-groups
+
+Environment=TZ=UTC
+Environment=HSA_OVERRIDE_GFX_VERSION=10.3.0
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
