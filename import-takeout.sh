@@ -10,15 +10,19 @@ fi
 API_KEY="$1"
 TAKEOUT_DIR="$(realpath "$2")"
 
-echo "Starting immich-go via Podman to import from $TAKEOUT_DIR..."
+echo "Preparing to import from $TAKEOUT_DIR..."
 echo "This will upload all .zip files found in the directory and automatically reconstruct your Google Photos albums."
 
-podman run --rm -it \
-  -v "$TAKEOUT_DIR:/takeout:ro" \
-  --network host \
-  ghcr.io/simulot/immich-go:v0.20.0 \
-  -server http://localhost:2283 \
-  -key "$API_KEY" \
-  upload -create-albums /takeout/*.zip
+IMMICH_GO_BIN="$HOME/.local/bin/immich-go"
+
+if [ ! -f "$IMMICH_GO_BIN" ]; then
+    echo "Downloading the official immich-go CLI..."
+    mkdir -p "$HOME/.local/bin"
+    curl -sL https://github.com/simulot/immich-go/releases/latest/download/immich-go_Linux_x86_64.tar.gz | tar xz -C "$HOME/.local/bin" immich-go
+    chmod +x "$IMMICH_GO_BIN"
+fi
+
+echo "Starting import via native immich-go..."
+"$IMMICH_GO_BIN" upload --on-errors continue --server http://localhost:2283 --api-key "$API_KEY" from-google-photos "$TAKEOUT_DIR"/*.zip
 
 echo "✅ Import complete!"

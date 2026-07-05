@@ -15,6 +15,7 @@ PodmanArgs=--group-add=keep-groups
 
 Environment=TZ=UTC
 Environment=HSA_OVERRIDE_GFX_VERSION=10.3.0
+Environment=HSA_USE_SVM=0
 
 [Service]
 Restart=always

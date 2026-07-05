@@ -1,44 +1,45 @@
 # Immich Self-Hosted Setup (Podman Quadlets + Tailscale)
 
-This repository contains an "Infrastructure as Code" (IaC) setup for hosting [Immich](https://immich.app/) using rootless Podman Quadlets, securely exposed via Tailscale.
+An infrastructure-as-code setup for hosting [Immich](https://immich.app/) with rootless Podman Quadlets, exposed to your Tailnet through a Tailscale sidecar container.
 
 ## Prerequisites
-1. **Podman** (v4.4 or newer, though v4.9+ is recommended).
-2. **Tailscale** installed and logged in on this machine.
-3. Your user must be in the `video` and `render` groups to use the AMD ROCm hardware acceleration for machine learning.
+1. Podman v4.4 or newer (v4.9+ recommended).
+2. Tailscale installed and logged in on this machine.
+3. Your user must be in the `video` and `render` groups to use AMD ROCm hardware acceleration for machine learning.
 
 ---
 
-## 🚀 1. Installation & Startup
+## 1. Installation & Startup
 
-1. **Run the Interactive Installer:**
+1. (Optional) Create a Tailscale auth key. Immich is exposed to your Tailnet by a Tailscale sidecar container that joins as its own node named `immich`. Create an auth key in the [Tailscale admin console](https://login.tailscale.com/admin/settings/keys) and have it ready for the installer. You only need this on first install; afterwards the sidecar's identity persists in a Podman volume.
+
+2. Run the interactive installer:
    ```bash
    ./install.sh
    ```
-   *This script does not need root/sudo. It will prompt you for your Timezone and Network Drive location, create the necessary data directories, generate a secure database password into Podman Secrets, compile the Quadlets, and start the services.*
+   No root/sudo required. The script prompts for your timezone, network drive location, and Tailscale auth key, then creates the data directories, generates a database password into Podman Secrets, compiles the Quadlets, and starts the services, including the sidecar.
 
-2. **Expose securely via Tailscale:**
-   By default, Immich is only listening on `127.0.0.1`. To expose it to your Tailnet securely (and get a free HTTPS certificate), run:
-   ```bash
-   tailscale serve --bg 2283 http://127.0.0.1:2283
-   ```
+Open `https://immich.<your-tailnet>.ts.net` in your browser (the HTTPS certificate is provisioned automatically) and create your admin account. To confirm the exact URL, run:
+```bash
+podman exec tailscale-immich tailscale status
+```
 
-You can now open your web browser to your machine's Tailscale IP or MagicDNS hostname (e.g., `https://my-server.my-tailnet.ts.net:2283`) and create your admin account.
+Because the sidecar gives Immich its own hostname on your Tailnet, separate from the host machine, you can host other apps on this machine the same way and each gets its own `https://<app>.<tailnet>.ts.net` URL. If you skip the auth key at install time, the sidecar is left out and you can fall back to host-level `tailscale serve --bg --https=443 http://127.0.0.1:2283`.
 
 ---
 
-## 📦 2. Importing Google Takeout (immich-go)
+## 2. Importing Google Takeout (immich-go)
 
-If you are migrating from Google Photos, we use `immich-go` to perfectly preserve your albums and metadata.
+If you are migrating from Google Photos, use `immich-go` to preserve your albums and metadata.
 
-### Preparation:
-1. Request a **Google Takeout** of your Google Photos. **Recommendation:** Choose `.zip` file format and set the size to **50GB** (not 2GB!) so that albums and metadata are kept together.
-2. If you have multiple family members migrating, download each person's Takeout zips into strictly separate folders (e.g., `/mnt/data/takeout/alice/` and `/mnt/data/takeout/bob/`). **Do not extract the zip files.**
+### Preparation
+1. Request a Google Takeout of your Google Photos. Choose `.zip` file format and set the size to 50GB rather than 2GB, so that albums and metadata stay together.
+2. If several family members are migrating, download each person's Takeout zips into separate folders (e.g., `/mnt/data/takeout/alice/` and `/mnt/data/takeout/bob/`). Do not extract the zip files.
 3. Create a user account for each person in the Immich web interface.
-4. Log in as each user, go to **Account Settings -> API Keys**, and generate a unique API Key for that person.
+4. Log in as each user, go to Account Settings -> API Keys, and generate an API key for that person.
 
-### Running the Import (Multi-User):
-Run the included wrapper script for each user separately. It will automatically download the `immich-go` container, mount their specific Takeout folder, and upload everything to their account.
+### Running the Import (Multi-User)
+Run the included wrapper script once per user. It downloads the `immich-go` CLI if needed, then uploads that person's zips to their account.
 
 ```bash
 # Import Person A's library into Person A's account
@@ -48,29 +49,31 @@ Run the included wrapper script for each user separately. It will automatically 
 ./import-takeout.sh "PERSON_B_API_KEY" "/mnt/data/takeout/bob"
 ```
 
-*Note: Immich intelligently handles duplicate shared photos! If Person B uploads a photo identical to one Person A already uploaded, Immich stores only one physical copy on your hard drive to save space, but makes it visible in both timelines. After the import, you can set up "Partner Sharing" natively inside Immich.*
+If Person B uploads a photo identical to one Person A already uploaded, Immich stores a single physical copy on disk and shows it in both timelines. After the import, you can set up Partner Sharing inside Immich.
 
 ---
 
-## 💾 3. Backups
-To back up your entire Immich instance, you must save two things:
-1. **The Database:** Dump your Postgres database using the running container:
+## 3. Backups
+
+A full backup consists of two parts:
+
+1. The database. Dump Postgres from the running container:
    ```bash
    podman exec -t immich-postgres pg_dumpall -c -U postgres > immich_db_backup.sql
    ```
-2. **The Media Library:** Copy or back up the entire network drive folder that you specified during installation.
+2. The media library. Back up the network drive folder you specified during installation.
 
-If you ever need to restore, you recreate the containers and run `cat immich_db_backup.sql | podman exec -i immich-postgres psql -U postgres`.
+To restore, recreate the containers and run `cat immich_db_backup.sql | podman exec -i immich-postgres psql -U postgres`.
 
 ---
 
-## 🔧 Maintenance & Updates
+## Maintenance & Updates
 
 ### Updating Immich
-To update to a newer version of Immich, edit the `Image=` lines in the templates inside the `templates/` directory to point to the new version tag (e.g., `v1.107.0`). Then re-run `./install.sh`.
+Edit the `Image=` lines in the `templates/` directory to point at the new version tag, then re-run `./install.sh`.
 
 ### Viewing Logs
-To see what Immich is doing under the hood, you can check the systemd logs:
+Immich activity is logged through systemd:
 ```bash
 journalctl --user -fu immich-server.service
 ```
