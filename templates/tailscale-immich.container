@@ -1,0 +1,31 @@
+[Unit]
+Description=Tailscale Sidecar for Immich
+After=immich-server.service
+Requires=immich-server.service
+
+[Container]
+Image=ghcr.io/tailscale/tailscale:latest
+ContainerName=tailscale-immich
+Network=immich.network
+
+# Node identity on the tailnet -> https://immich.<your-tailnet>.ts.net
+Environment=TS_HOSTNAME=immich
+# Userspace networking: no TUN device or NET_ADMIN needed (rootless-friendly)
+Environment=TS_USERSPACE=true
+# Persist node identity across restarts
+Environment=TS_STATE_DIR=/var/lib/tailscale
+Volume=tailscale-immich-state.volume:/var/lib/tailscale
+
+# Declarative serve config: proxies HTTPS 443 to the immich-server container.
+# The host path is filled in by install.sh.
+Environment=TS_SERVE_CONFIG=/config/serve.json
+Volume=/path/to/tailscale-immich-serve.json:/config/serve.json:ro
+
+# One-time join key (persisted state takes over after first login)
+Secret=tailscale_authkey,type=env,target=TS_AUTHKEY
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
